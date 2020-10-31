@@ -1,103 +1,79 @@
 import numpy as np
-import tensorflow.keras as k
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 from games import TicTacToe
 from mcts import Tree
 
 np.set_printoptions(suppress=False, linewidth=280)
 
-class MuzeroCell(k.layers.Layer):
-    def __init__(self, state_size, policy_size, **kwargs):
-        super().__init__(**kwargs)
-        self.state_size = state_size
-        self.policy_size = policy_size
-        self.output_size = [state_size, (policy_size, 1, 1, 1)]  # state, policy, value, reward, action
 
-    def build(self, input_shapes):
+class representation(nn.Module):
+    """
+    h(observations) = state
+      - observations is [8,3,3] (last 8 board states)
+      - state is [32,3,3]
+    """
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(8, 16, 3, padding=1) # padding by 1 so output planes remain 3x3
+        self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
 
-        self.policy = k.Sequential(
-            [
-                tf.keras.Input(shape=(self.state_size,)),
-                k.layers.Dense(
-                    32,
-                    activation="relu",
-                    kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                    bias_regularizer=k.regularizers.l1(1e-4),
-                    activity_regularizer=k.regularizers.l1(1e-5),
-                ),
-                k.layers.Dense(
-                    16,
-                    activation="relu",
-                    kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                    bias_regularizer=k.regularizers.l1(1e-4),
-                    activity_regularizer=k.regularizers.l1(1e-5),
-                ),
-                k.layers.Dense(
-                    input_shapes[0][1], # output shape is same as mask
-                    activation="softmax",
-                    kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                    bias_regularizer=k.regularizers.l1(1e-4),
-                ),
-            ]
-        )
+    def forward(self, observations):
+        observations = torch.stack([torch.zeros([8 - observations.shape[0], 3, 3]), observations], 0)
+        x = F.relu(self.conv1(observations.unsqueeze(0)))
+        state = F.relu(self.conv2(x))
+        return state
 
-        self.value = k.Sequential(
-            [
-                tf.keras.Input(shape=(self.state_size,)),
-                k.layers.Dense(
-                    32,
-                    activation="relu",
-                    kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                    bias_regularizer=k.regularizers.l1(1e-4),
-                    activity_regularizer=k.regularizers.l1(1e-5),
-                ),
-                k.layers.Dense(
-                    16,
-                    activation="relu",
-                    kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                    bias_regularizer=k.regularizers.l1(1e-4),
-                    activity_regularizer=k.regularizers.l1(1e-5),
-                ),
-                k.layers.Dense(
-                    1, kernel_regularizer=k.regularizers.l1(l2=1e-4), bias_regularizer=k.regularizers.l1(1e-4)
-                ),
-            ]
-        )
+class dynamics(nn.Module):
+    """
+    g(state, action) = next_state, reward
+      - state is [32,3,3]
+      - action is [3,3]
+      - next_state is [32,3,3]
+      - reward is [1]
 
-        self.next_state = k.Sequential(
-            [
-                k.layers.Concatenate(axis=1),
-                k.layers.Dense(
-                    128,
-                    activation="relu",
-                    kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                    bias_regularizer=k.regularizers.l1(1e-4),
-                    activity_regularizer=k.regularizers.l1(1e-5),
-                ),
-                k.layers.Dense(
-                    64,
-                    activation="relu",
-                    kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                    bias_regularizer=k.regularizers.l1(1e-4),
-                    activity_regularizer=k.regularizers.l1(1e-5),
-                ),
-                k.layers.Dense(
-                    self.state_size,
-                    kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                    bias_regularizer=k.regularizers.l1(1e-4),
-                ),
-            ]
-        )
+    """
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(33, 16, 3, padding=1) # padding by 1 so output planes remain 3x3
+        self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
+        self.dense1 = nn.Linear(8*3*3, 3*3)
+        self.dense2 = nn.Linear(3*3, 1) # TODO: not this?
 
-    def call(self, inputs, states):
-        state = states[0]
-        policy = self.policy(state)
-        value = self.value(state)
-        action = self._sample(inputs, policy)  # using inputs to mask illegal moves
-        next_state = self.next_state([state, action])
-        output = (policy, value, action)
-        return output, next_state
+    def forward(self, state, action):
+        x = F.relu(self.conv1(torch.stack([state, action], 1)))
+        next_state = F.relu(self.conv2(x.unsqueeze(0)))
+
+        x = F.relu(self.dense1(torch.flatten(x, start_dim=1))) # keep batch
+        reward = F.tanh(self.dense2(x))
+
+        return next_state, reward
+
+class prediction(nn.Module):
+    """
+    f(state) = policy, value
+      - state is [32,3,3]
+      - policy is [3,3]
+      - value is [1]
+    """
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(32, 8, 3, padding=1) # padding by 1 so output planes remain 3x3
+        self.conv2 = nn.Conv2d(8, 1, 3, padding=1)
+        self.dense1 = nn.Linear(8*3*3, 3*3)
+        self.dense2 = nn.Linear(3*3, 1) # TODO: not this?
+
+    def forward(self, state):
+        x = F.relu(self.conv1(state))
+        policy = F.relu(self.conv2(x))
+
+        x = F.relu(self.dense1(x.view(-1, 8*3*3)))
+        value = F.tanh(self.dense2(x))
+
+        return policy, value
+
 
     @staticmethod
     def _sample(mask, policy):
@@ -107,64 +83,13 @@ class MuzeroCell(k.layers.Layer):
         return np.random.choice(len(policy), p=policy / np.sum(policy))
 
 
-class MuzeroRNN(k.layers.RNN):
-    def __init__(self, state_size, policy_size, K, **kwargs):
-        self.K = K
-        super().__init__(self.cell, return_sequences=True)
-
-    def call(self, inputs, initial_state):
-        output, state = self.cell(inputs, initial_state)
-        for k in range(self.K - 1):
-            output = self.cell(inputs, initial_state)
-
-
 class Muzero:
 
-    representation = k.Sequential(
-        [
-            k.layers.Dense(
-                128,
-                activation="relu",
-                kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                bias_regularizer=k.regularizers.l1(1e-4),
-                activity_regularizer=k.regularizers.l1(1e-5),
-            ),
-            k.layers.Dense(
-                64,
-                activation="relu",
-                kernel_regularizer=k.regularizers.l1(l2=1e-4),
-                bias_regularizer=k.regularizers.l1(1e-4),
-                activity_regularizer=k.regularizers.l1(1e-5),
-            ),
-            k.layers.Dense(32, kernel_regularizer=k.regularizers.l1(l2=1e-4), bias_regularizer=k.regularizers.l1(1e-4)),
-        ]
-    )
-
-    # reward = k.Sequential([
-    #     k.layers.Dense(32, activation="relu", kernel_regularizer=k.regularizers.l1(l2=1e-4), bias_regularizer=k.regularizers.l1(1e-4), activity_regularizer=k.regularizers.l1(1e-5)),
-    #     k.layers.Dense(16, activation="relu", kernel_regularizer=k.regularizers.l1(l2=1e-4), bias_regularizer=k.regularizers.l1(1e-4), activity_regularizer=k.regularizers.l1(1e-5)),
-    #     k.layers.Dense(1, kernel_regularizer=k.regularizers.l1(l2=1e-4), bias_regularizer=k.regularizers.l1(1e-4))])
 
     def __init__(self, Game):
         self.REPLAY_BUFFER = []
         self.game = Game()
         self.MCTS = MCTS()
-
-    # def h(self, observations: list):
-    #     return tf.reduce_sum(
-    #         self.representation(tf.convert_to_tensor(observations, dtype=tf.float32)), axis=0, keepdims=True
-    #     )
-
-    # def f(self, state):
-    #     return self.policy(state), self.value(state)
-
-    # def g(self, state, action: int):
-    #     z = np.zeros((1, 9), dtype=np.float32)
-    #     z[0, action] = 1
-    #     return (
-    #         self.reward(k.layers.Concatenate(axis=1)([state, z])),
-    #         self.new_state(k.layers.Concatenate(axis=1)([state, z])),
-    #     )
 
     # A
     def MCTS_search(self, observations: list, num_simulations: int):
@@ -177,7 +102,7 @@ class Muzero:
     def MCTS_play(self):
         self.game.__init__()
         observations = self.game.observations
-        policies_pi = []
+        MCTS_policies = []
         actions = []
         illegal = 0
         while not self.game.end:
@@ -187,37 +112,35 @@ class Muzero:
                 illegal += 1
                 continue
             action_index = np.random.choice(self.game.num_actions, p = MCTS_policy.reshape(-1) / np.sum(MCTS_policy))
-            z = self.game.play(self.game.action(action_index))  # at the end of the game, z contains the final value (+1 win, -1 loss, 0 graw)
+            observed_reward = self.game.play(self.game.action(action_index))  # at the end of the game, observed_reward contains the final value (+1 win, -1 loss, 0 graw)
             actions.append(action)
-            policies_pi.append(MCTS_policy)
+            MCTS_policies.append(MCTS_policy)
             observations.append(self.game.observations)
         if illegal > 0:
             print(f"skipped {illegal} illegal moves")
-        return observations, actions, policies_pi, z
+        return observations, actions, MCTS_policies, observed_reward
 
     # Model rollout (C)
-    def model_pv(self, observations: list, actions: list):
-        s = self.h(observations[0][None, :])  # NOTE: should it be observations[0] ?
-        policies_p = []
-        values_v = []
-        for k in range(min(5, len(actions))):  # TODO: for a in actions
-            p, v = self.f(s)
-            policies_p.append(p[0])
-            values_v.append(v[0, 0])
-            r, s = self.g(s, actions[k])
-        return policies_p, values_v
+    def model_rollout(self, observations: list, actions: list):
+        state = self.representation(observations)
+        
+        model_policies = []
+        model_values = []
+        for action in actions:  # TODO: for a in actions
+            state, policy, value, reward = self.model(state, action)
+            model_policies.append(tf.squeeze(policy))
+            model_values.append(tf.squeeze(value))
+        return model_policies, model_values
 
     def loss(self):
-        observations, actions, policies_pi, z = self.self_play()
-        self.REPLAY_BUFFER.append((observations, actions, policies_pi, z))
-        policies_p, values_v = self.model_pv(observations, actions)
-
+        observations, actions, MCTS_policies, observed_reward = self.MCTS_play()
+        self.REPLAY_BUFFER.append((observations, actions, MCTS_policies, observed_reward))
+        model_policies, model_values = self.model_rollout(observations, actions)
         loss_v = 0
         loss_p = 0
-        for k in range(min(5, len(policies_p))):  # TODO: for k in len(policies_p)
-            loss_p += tf.reduce_sum(policies_pi * tf.math.log(1e-7 + policies_p[k]))  # learning P
-            loss_v += (z - values_v[k]) ** 2  # learning V
-
+        for i in range(min(5, len(model_policies))):  # TODO: for i in len(policies_p)
+            loss_p += k.losses.categorical_crossentropy(MCTS_policies[i], model_policies[i]))
+            loss_v += (observed_reward - model_values[i]) ** 2
         return loss_p + loss_v
 
     @property
