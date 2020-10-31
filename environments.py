@@ -2,7 +2,7 @@ import numpy as np
 
 
 class TicTacToe:
-    num_observations = 1  # number of last game states to give to the MCTS
+    num_observations = 8
 
     def __init__(self):
         self.board = np.zeros((3, 3), dtype=np.float32)
@@ -37,10 +37,12 @@ class TicTacToe:
 
     @property
     def observations(self):
-        return self._observations[-self.num_observations :]
+        padding = [np.zeros((3,3), dtype=np.float32) for i in range(self.num_observations - len(self._observations))]
+        return padding + self._observations[-self.num_observations :]
 
     @property
-    def legal_moves_mask(self):
+    def legal_actions_mask
+    (self):
         return np.isclose(self.board, 0)
 
     @property
@@ -60,3 +62,9 @@ class TicTacToe:
         horizontal = np.isclose(np.sum(self.board, axis=1), -3).any()
         diagonals  = np.isclose([np.trace(self.board), np.trace(np.rot90(self.board)]), -3).any()
         return vertical or horizontal or diagonals
+
+    @staticmethod
+    def int_to_action(action_index: int):
+        z = np.zeros(9, dtype=np.float32)
+        z[action_index] = 1
+        return z.reshape((3,3))[None,...]
