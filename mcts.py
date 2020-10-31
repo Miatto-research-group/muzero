@@ -5,7 +5,7 @@ c2 = 19652
 gamma = 0.997
 
 
-class Tree:
+class MCTS:
     def __init__(self):
         self.reset()
 

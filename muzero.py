@@ -147,50 +147,50 @@ class Muzero:
 
     def __init__(self, Game):
         self.REPLAY_BUFFER = []
-        self.game = Game
-        self.MCTS_tree = Tree()
+        self.game = Game()
+        self.MCTS = MCTS()
 
-    def h(self, observations: list):
-        return tf.reduce_sum(
-            self.representation(tf.convert_to_tensor(observations, dtype=tf.float32)), axis=0, keepdims=True
-        )
+    # def h(self, observations: list):
+    #     return tf.reduce_sum(
+    #         self.representation(tf.convert_to_tensor(observations, dtype=tf.float32)), axis=0, keepdims=True
+    #     )
 
-    def f(self, state):
-        return self.policy(state), self.value(state)
+    # def f(self, state):
+    #     return self.policy(state), self.value(state)
 
-    def g(self, state, action: int):
-        z = np.zeros((1, 9), dtype=np.float32)
-        z[0, action] = 1
-        return (
-            self.reward(k.layers.Concatenate(axis=1)([state, z])),
-            self.new_state(k.layers.Concatenate(axis=1)([state, z])),
-        )
+    # def g(self, state, action: int):
+    #     z = np.zeros((1, 9), dtype=np.float32)
+    #     z[0, action] = 1
+    #     return (
+    #         self.reward(k.layers.Concatenate(axis=1)([state, z])),
+    #         self.new_state(k.layers.Concatenate(axis=1)([state, z])),
+    #     )
 
     # A
-    def MCTS_policy(self, observations: list, num_simulations: int):
-        self.MCTS_tree.reset()
-        self.MCTS_tree.set_obs_model(observations, (self.f, self.g, self.h))
-        pi, nu = self.MCTS_tree.policy_value(num_simulations)
-        return pi, nu
+    def MCTS_search(self, observations: list, num_simulations: int):
+        self.MCTS.reset()
+        self.MCTS.initialize(self.representation(observations), self.model)
+        policy, value = self.MCTS.search(num_simulations)
+        return policy, value
 
     # B
-    def self_play(self):
-        game = self.game()
-        observations = game.observations
+    def MCTS_play(self):
+        self.game.__init__()
+        observations = self.game.observations
         policies_pi = []
         actions = []
         illegal = 0
-        while not game.end:
-            pi, nu = self.MCTS_policy(game.observations, num_simulations=50)
-            pi_legal = pi * game.legal_moves_mask
-            if np.allclose(pi_legal, 0):
+        while not self.game.end:
+            MCTS_policy, MCTS_value = self.MCTS_search(game.observations, num_simulations=50)
+            MCTS_policy = MCTS_policy * self.game.legal_moves_mask
+            if np.allclose(MCTS_policy, 0):
                 illegal += 1
                 continue
-            a = np.random.choice(len(pi), p=pi_legal / sum(pi_legal))
-            z = game.play(a)  # at the end of the game, z contains the final value (+1 win, -1 loss, 0 graw)
-            actions.append(a)
-            policies_pi.append(pi)
-            observations.extend(game.observations)
+            action_index = np.random.choice(self.game.num_actions, p = MCTS_policy.reshape(-1) / np.sum(MCTS_policy))
+            z = self.game.play(self.game.action(action_index))  # at the end of the game, z contains the final value (+1 win, -1 loss, 0 graw)
+            actions.append(action)
+            policies_pi.append(MCTS_policy)
+            observations.append(self.game.observations)
         if illegal > 0:
             print(f"skipped {illegal} illegal moves")
         return observations, actions, policies_pi, z

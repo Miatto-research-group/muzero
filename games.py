@@ -16,8 +16,13 @@ class TicTacToe:
         self._observations.append(self.board.copy())
         return self.immediate_return
 
+    def action(self, action_index:int) -> np.array:
+        z = np.zeros(9, dtype=np.float32)
+        z[action_index] = 1
+        return z.reshape((3,3))
+
     @property
-    def immediate_return(self):
+    def immediate_return(self) -> int:
         if self.win_x:
             self.end = True
             return 1
