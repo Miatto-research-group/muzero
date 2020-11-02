@@ -1,5 +1,5 @@
 *.ipynb
-.pytest_pycache/
+.pytest_cache/
 .ipynb_checkpoints/
 __pycache__/
 .python-version
