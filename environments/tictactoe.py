@@ -6,33 +6,37 @@ class TicTacToe:
     MDP = False
 
     def __init__(self):
-        self._board = np.zeros((2, 3, 3), dtype=np.int)
-        self.observations = deque(list(np.zeros((self.num_observations, 2, 3, 3))), maxlen=self.num_observations)
+        self.board = np.zeros((2, 3, 3), dtype=np.int)
+        self.observations = deque(list(np.zeros((self.num_observations, 2, 3, 3), dtype=np.int)), maxlen=self.num_observations)
         self.end = False
         self.actions = []
+        # self.total = 0
         self.record_observation()
 
     def from_observations(self, observations):
-        self._observations = observations
-        turn = int(np.sum(observations[-1]) % 2)
-        self._board = observations[-1][turn]
+        self.observations = observations
+        self.board = observations[-1].copy()
         self.end = self.win_o or self.win_x or self.draw
+        # self.total = np.sum(self.board)
 
     @property
     def turn(self):
-        return int(np.sum(self._board) % 2)
+        return np.sum(self.board) % 2
 
     def record_observation(self):
-        self.observations.appendleft(self._board)
+        self.observations.append(self.board.copy())
 
     def play(self, action) -> int:
-        if type(action) in int:
+        if type(action) is int:
             action = self.action(action)
-        if not self.valid_action(self._board, action):
-            raise ValueError(f"invalid action {action} with board {self._board}")
-        self._board[self.turn] += action
+        if not self.valid_action(action):
+            raise ValueError(f"invalid action {action} with board {self.board} and mask {self.mask}")
+        self.board[self.turn] += action
         self.record_observation()
         self.actions.append(action)
+        # print(np.sum(self.board), self.total + 1)
+        # assert np.sum(self.board) == self.total + 1
+        # self.total += 1
         return self.immediate_return
 
     def action(self, action_index: int) -> np.array:
@@ -54,30 +58,21 @@ class TicTacToe:
         else:
             return 0
 
-    def mask(self, observation=None): # TODO: do we need observations?
-        if observation is None:
-            return np.isclose(self._board[self.turn], 0).astype(int)
-        else:
-            turn = int(np.sum(observation) % 2)
-            return np.isclose(observation[turn], 0).astype(int)
+    @property
+    def mask(self):
+        return np.isclose(np.sum(self.board, axis=0), 0).astype(int)
 
-    @staticmethod
-    def valid_board(board):
-        return np.sum(np.sum(board, axis=0) == 2) == 0
-
-    @staticmethod
-    def valid_action(board, action):
+    def valid_action(self, action):
         x, y = np.where(action == 1.0)
-        return np.isclose(np.sum(board[:, x, y]), 1)
+        return np.isclose(np.sum(self.board[:, x, y]), 0)
 
     @property
     def draw(self):
-        board = self._board[0] - self._board[1]
-        return np.isclose(np.sum(np.abs(board)), 9) and np.isclose(np.sum(board), 0)
+        return np.allclose(self.board[0] + self.board[1], 1)
 
     @property
     def win_x(self):
-        board = self._board[0] - self._board[1]
+        board = self.board[0] - self.board[1]
         vertical = np.isclose(np.sum(board, axis=0), 3).any()
         horizontal = np.isclose(np.sum(board, axis=1), 3).any()
         diagonals = np.isclose([np.trace(board), np.trace(np.rot90(board))], 3).any()
@@ -85,16 +80,16 @@ class TicTacToe:
 
     @property
     def win_o(self):
-        board = self._board[0] - self._board[1]
+        board = self.board[0] - self.board[1]
         vertical = np.isclose(np.sum(board, axis=0), -3).any()
         horizontal = np.isclose(np.sum(board, axis=1), -3).any()
         diagonals = np.isclose([np.trace(board), np.trace(np.rot90(board))], -3).any()
         return vertical or horizontal or diagonals
 
     @property
-    def board(self):
-        squares = ["", "", "", "", "", "", "", "", ""]
+    def show(self):
+        squares = [" ", " ", " ", " ", " ", " ", " ", " ", " "]
         for k in range(9):
-            squares[k] = "x" if self._board[0].reshape(-1)[k] == 1 else " "
-            squares[k] = "o" if self._board[1].reshape(-1)[k] == 1 else " "
-        print("".join(squares[:3]) + "\n" + "".join(squares[3:6]) + "\n" + "".join(squares[6:]))
+            if self.board[0].reshape(-1)[k] == 1: squares[k] = "x"
+            if self.board[1].reshape(-1)[k] == 1: squares[k] = "o"
+        print(" ___\n|"+"".join(squares[:3]) + "|\n|" + "".join(squares[3:6]) + "|\n|" + "".join(squares[6:])+"|\n ---")
