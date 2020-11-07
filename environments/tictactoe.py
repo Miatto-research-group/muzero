@@ -60,7 +60,7 @@ class TicTacToe:
 
     @property
     def mask(self):
-        return np.isclose(np.sum(self.board, axis=0), 0).astype(int)
+        return np.isclose(np.sum(self.board, axis=0), 0).astype(int).reshape(-1)
 
     def valid_action(self, action):
         x, y = np.where(action == 1.0)
