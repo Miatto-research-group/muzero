@@ -26,11 +26,11 @@ if __name__ == "__main__":
         player1.environment = game
         player2.environment = game
         while True:
-            game.play(player1.move(game.state, leaves_per_move=50))
+            game.play(player1.move(game.state, leaves_per_move=20))
             if game.end:
                 game.show
                 return game.reward
-            game.play(player2.move(game.state, leaves_per_move=50))
+            game.play(player2.move(game.state, leaves_per_move=20))
             if game.end:
                 game.show
                 return -game.reward

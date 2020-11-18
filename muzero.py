@@ -14,7 +14,7 @@ class Muzero:
         with torch.no_grad():
             self.mcts = MCTS(self.network, Environment())
         self.REPLAY_BUFFER = []
-        self.optimizer = torch.optim.Adam(self.network.parameters, lr=0.001, weight_decay=0.001)
+        self.optimizer = torch.optim.Adam(self.network.parameters, lr=0.01, weight_decay=0.001)
 
     def rollout(self, observation, actions: list, K: int = 5):
         "plays K hypothetical steps from any given observation"
@@ -34,6 +34,8 @@ class Muzero:
         move = np.random.choice(len(episode.actions)-2) # TODO: check the -2 (should make sure there's at least one move left)
         rollout_episode = self.rollout(episode.observations[max(0, move+1-self.environment.num_observations): move+1], episode.actions[move:], K=5)
         loss_v = 0
+        # print(episode.values)
+        # print([float(v.detach().numpy()) for v in rollout_episode.values])
         for z, v in zip(episode.values, rollout_episode.values):
             loss_v += (z - v) ** 2
         loss_p = 0

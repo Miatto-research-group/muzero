@@ -17,10 +17,13 @@ class Representation(nn.Module):
         self.conv2 = nn.Conv3d(32, 32, (3, 3, 3), padding=(0, 1, 1))  # output becomes [1,32,1,3,3]
 
     def forward(self, observations):
-        full_observations = torch.zeros((self.num_observations, 2, 3, 3), dtype=torch.float32)
-        full_observations[:len(observations)] = torch.tensor(observations)
-        for i in range(self.num_observations - len(observations)):
-            full_observations[len(observations) + i] = torch.tensor(observations[-1])
+        if len(observations) < self.num_observations:
+            full_observations = torch.zeros((self.num_observations, 2, 3, 3), dtype=torch.float32)
+            full_observations[:len(observations)] = torch.tensor(observations)
+            for i in range(self.num_observations - len(observations)):
+                full_observations[len(observations) + i] = torch.tensor(observations[-1])
+        else:
+            full_observations = torch.tensor(observations, dtype=torch.float32)
         x = F.relu(self.conv1(full_observations.unsqueeze(0)))
         state = self.conv2(x).squeeze()
         return state

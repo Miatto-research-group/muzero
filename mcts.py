@@ -111,8 +111,8 @@ class Tree:
             self.root.N *= self.environment.mask # set visits to 0 for upcoming illegal moves
         if issubclass(self.environment.__class__, Game):
             u = self.environment.reward # final reward
-            winner = (len(episode.rewards) - 1)%self.environment.num_players
-            episode.values = [u if k%self.environment.num_players == winner else -u for k in range(len(episode.rewards))]
+            winner = (len(episode.values) - 1)%self.environment.num_players
+            episode.values = [u if k%self.environment.num_players == winner else -u for k in range(len(episode.values))]
         return episode
 
     def move(self, env_state, leaves_per_move:int):
