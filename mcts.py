@@ -70,6 +70,7 @@ class Tree:
         "Returns a new node and value of the selected action"
         state, _ = self.network.dynamics(node.state, self.environment.action(action)) #TODO: this isn't pretty
         policy, value = self.network.prediction(state)
+        # print(state, value)
         new_node = Node(parent = (node, action) , policy = policy, state = state)
         node.children[action] = new_node
         return new_node, value
@@ -119,5 +120,6 @@ class Tree:
         root_state = self.network.representation(self.environment.state)
         policy, _ = self.network.prediction(root_state)
         self.root = Node(parent=None, policy=policy, state=root_state)
+        # print(self.environment.mask)
         pi = self.policy(leaves_per_move, mask=self.environment.mask)
         return np.random.choice(len(pi), p = pi)

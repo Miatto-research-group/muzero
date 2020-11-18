@@ -19,7 +19,8 @@ class TicTacToe(Game):
         if type(action) is int:
             action = self.action(action)
         if not self.valid_action(action):
-            raise ValueError(f"invalid action \n{action} with board \n{self.state} and mask \n{self.mask}")
+            self.show
+            raise ValueError(f"invalid action \n{action}")
         self.state[self.turn] += action
         return self.reward
     

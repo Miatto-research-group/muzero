@@ -45,7 +45,7 @@ class Dynamics(nn.Module):
     def forward(self, state, action):
         x = F.relu(self.conv1(torch.cat([state.unsqueeze(0), torch.tensor(action[None,...], dtype=torch.float32).unsqueeze(0)], 1)))
         x = F.relu(self.conv2(x))
-        next_state = self.conv3(x).squeeze(0)
+        next_state = torch.tanh(self.conv3(x)).squeeze(0)
 
         x = F.relu(self.dense1(torch.flatten(x, start_dim=1)))
         reward = torch.tanh(self.dense2(x)).squeeze(0)
