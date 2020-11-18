@@ -2,13 +2,14 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 import numpy as np
 from environments import TicTacToe as Environment
+from environments import Game
 
 class Node:
     def __init__(self, parent, policy, state):
-        self.parent = parent
+        self.parent = parent # (node, action) pair
         self.children = defaultdict(lambda: None)
         self.N = np.zeros(len(policy), dtype=int)
-        self.P = policy
+        self.P = np.array(policy)
         self.Q = np.zeros(len(policy), dtype=float)
         self.state = state
 
@@ -19,8 +20,20 @@ class Node:
 class Episode:
     observations: list = field(default_factory=list)
     actions: list = field(default_factory=list)
+    rewards: list = field(default_factory=list)
     values: list = field(default_factory=list)
     policies: list = field(default_factory=list)
+
+    def store_data(self, oarvp:tuple):
+        o,a,r,v,p = oarvp
+        self.observations.append(np.array(o))
+        self.actions.append(np.array(a))
+        self.rewards.append(r)
+        self.values.append(v)
+        self.policies.append(p)
+    
+    def __len__(self):
+        return len(self.actions)
 
     def __repr__(self):
         env = Environment()
@@ -30,84 +43,81 @@ class Episode:
         return ''
 
 class Tree:
-    def __init__(self, network, Environment):
+    def __init__(self, network, environment, observations = None):
         self.network = network
-        self.environment = Environment()
-        root_state = self.network.representation(self.environment.observations)
+        self.environment = environment
+        if observations is None:
+            observations = self.environment.state[None,...]
+        root_state = self.network.representation(observations)
         policy, _ = self.network.prediction(root_state)
-        self.root = Node(None, policy, root_state)
+        self.root = Node(parent=None, policy=policy, state=root_state)
+
+    def reset(self):
+        self.environment.__init__()
+        self.__init__(self.network, self.environment)
 
     def select(self, node: Node, mask=None) -> int:
-        pUCT = (node.Q + node.P.numpy()*np.sqrt(np.sum(node.N))/(node.N + 1))
+        "Returns an action to take from a node"
+        pUCT = node.Q + node.P*np.sqrt(np.sum(node.N))/(node.N + 1)
+        pUCT -= np.min(pUCT)
         if mask is not None:
             pUCT *= mask
             if np.allclose(pUCT, 0):
-                pUCT = mask
-        return np.random.choice(np.flatnonzero(pUCT==pUCT.max())) # argmax with random tie-break
+                return np.random.choice(np.flatnonzero(mask))
+        return np.argmax(pUCT)
 
-    def expand(self, node: Node, action: int) -> Node:
-        state, _ = self.network.dynamics(node.state, self.environment.action(action))
+    def expand(self, node: Node, action: int) -> tuple:
+        "Returns a new node and value of the selected action"
+        state, _ = self.network.dynamics(node.state, self.environment.action(action)) #TODO: this isn't pretty
         policy, value = self.network.prediction(state)
         new_node = Node(parent = (node, action) , policy = policy, state = state)
         node.children[action] = new_node
         return new_node, value
 
     def backup(self, node: Node, value: float):
+        "Backs up the information about a newly added node"
         while node.parent is not None:
             node, action = node.parent
             node.Q[action] = (node.N[action]*node.Q[action] + value)/(node.N[action] + 1)
             node.N[action] += 1
         
-    def explore(self, mask:np.array):
+    def add_leaf_and_backup(self, mask:np.array):
+        "Keeps exploring until a new leaf is added to the tree (and backup)"
         node = self.root
-        action = self.select(node, mask) # assumes env and tree are synced at the root
+        action = self.select(node, mask) # masking only the 1st action from the root
         while node.children[action] is not None:
             node = node.children[action]
             action = self.select(node)
         leaf, value = self.expand(node, action)
         self.backup(leaf, value)
 
-    def search(self, num_simulations: int, mask: np.array) -> np.array:
+    def policy(self, num_simulations: int, mask: np.array) -> np.array:
+        "Performs a number of explorations and returns a policy for the action from the root node"
         for k in range(num_simulations):
-            self.explore(mask)
+            self.add_leaf_and_backup(mask)
         return self.root.N/np.sum(self.root.N)
         
-    def full_rollout(self, num_simulations:int = 50):
-        self.environment.__init__()
-        self.root.state = self.network.representation(self.environment.observations)
+    def full_episode(self, leaves_per_move:int = 50):
+        "plays out a full episode, searching on a fixed number of leaves per move"
+        self.reset()
         episode = Episode()
         while not self.environment.end:
-            pi = self.search(num_simulations, mask=self.environment.mask)
-            action = np.random.choice(len(self.root.N), p = pi)
+            pi = self.policy(leaves_per_move, mask=self.environment.mask)
+            action = np.random.choice(len(pi), p = pi)
             self.environment.play(action)
-            # self.environment.show
-            episode.observations.append(self.environment.observations)
-            episode.actions.append(action)
-            episode.policies.append(self.root.P)
-            episode.values.append(self.root.Q[action])
+            episode.store_data((self.environment.state, action, self.environment.reward, self.root.Q[action], self.root.P))
             self.root = self.root.children[action]
-            self.root.N *= self.environment.mask
+            self.root.N *= self.environment.mask # set visits to 0 for upcoming illegal moves
+        if issubclass(self.environment.__class__, Game):
+            u = self.environment.reward # final reward
+            winner = (len(episode.rewards) - 1)%self.environment.num_players
+            episode.values = [u if k%self.environment.num_players == winner else -u for k in range(len(episode.rewards))]
         return episode
 
-    def partial_rollout(self, episode:Episode, move:int, K: int = 3, num_simulations:int = 100):
-        "plays K steps from any given episode move"
-        self.environment.from_observations(episode.observations[move])
-        self.root.state = self.network.representation(self.environment.observations)
-        rollout_episode = Episode()
-        for _ in range(K):
-            pi = self.search(num_simulations = num_simulations, mask=self.environment.mask)
-            action = np.random.choice(len(self.root.N), p = pi) #TODO get_action()
-            episode.actions.append(action)
-            episode.policies.append(pi)
-            episode.values.append(self.root.Q[action])
-            if self.environment.end:
-                for _ in range(K - len(episode.actions)):
-                    policies.append(policies[-1])
-                    values.append(values[-1])
-                break
-            else:
-                self.environment.play(action)
-                self.root = self.root.children[action]
-                self.root.N *= self.environment.mask
-        return episode
-        
+    def move(self, env_state, leaves_per_move:int):
+        self.environment.from_state(env_state)
+        root_state = self.network.representation(self.environment.state)
+        policy, _ = self.network.prediction(root_state)
+        self.root = Node(parent=None, policy=policy, state=root_state)
+        pi = self.policy(leaves_per_move, mask=self.environment.mask)
+        return np.random.choice(len(pi), p = pi)

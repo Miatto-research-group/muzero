@@ -6,18 +6,22 @@ from itertools import chain
 
 class Representation(nn.Module):
     """
-    h(observations) = state
-      - observations is [N,2,3,3] (last N board states)
-      - state is [32,3,3]
+    h(state) = hidden state
+      - observations is [N,2,3,3] (last N board states) but N can be 1,2,3... as they build up.
+      - hidden state is [32,3,3]
     """
     def __init__(self, num_observations: int):
         super().__init__()
+        self.num_observations = num_observations
         self.conv1 = nn.Conv3d(num_observations, 32, (2, 3, 3), padding=1)  # output becomes [1,32,2,3,3]
         self.conv2 = nn.Conv3d(32, 32, (3, 3, 3), padding=(0, 1, 1))  # output becomes [1,32,1,3,3]
 
     def forward(self, observations):
-        observations = torch.tensor(observations, dtype=torch.float32)
-        x = F.relu(self.conv1(observations.unsqueeze(0)))
+        full_observations = torch.zeros((self.num_observations, 2, 3, 3), dtype=torch.float32)
+        full_observations[:len(observations)] = torch.tensor(observations)
+        for i in range(self.num_observations - len(observations)):
+            full_observations[len(observations) + i] = torch.tensor(observations[-1])
+        x = F.relu(self.conv1(full_observations.unsqueeze(0)))
         state = self.conv2(x).squeeze()
         return state
 
@@ -87,3 +91,14 @@ class Network:
     @property
     def parameters(self):
         return chain(self.representation.parameters(), self.dynamics.parameters(), self.prediction.parameters())
+
+    def save(self, path:str):
+        torch.save({'prediction': self.prediction.state_dict(),
+        'dynamics':self.dynamics.state_dict(),
+        'representation':self.representation.state_dict()}, path)
+
+    def load(self, path:str):
+        checkpoint = torch.load(path)
+        self.prediction.load_state_dict(checkpoint['prediction'])
+        self.dynamics.load_state_dict(checkpoint['dynamics'])
+        self.representation.load_state_dict(checkpoint['representation'])
