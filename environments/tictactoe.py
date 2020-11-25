@@ -22,7 +22,7 @@ class TicTacToe(Game):
             self.show
             raise ValueError(f"invalid action \n{action}")
         self.state[self.turn] += action
-        print("Play ", self.reward, "\n",  self.state[self.turn], flush=True)
+        #print("Play ", self.reward, "\n",  self.state[self.turn], flush=True)
         return self.reward
     
     def action(self, action_index: int) -> np.array:
@@ -36,7 +36,7 @@ class TicTacToe(Game):
 
     @property
     def reward(self) -> int:
-        print("Reward ", int(self.end and (self.win_x or self.win_o)), flush=True)
+        #print("Reward ", int(self.end and (self.win_x or self.win_o)), flush=True)
         return int(self.end and (self.win_x or self.win_o))
 
     @property
@@ -51,7 +51,7 @@ class TicTacToe(Game):
         vertical = np.isclose(np.sum(board, axis=0), 3).any()
         horizontal = np.isclose(np.sum(board, axis=1), 3).any()
         diagonals = np.isclose([np.trace(board), np.trace(np.rot90(board))], 3).any()
-        print("Check Win: ", vertical, horizontal, diagonals, flush=True)
+        #print("Check Win: ", vertical, horizontal, diagonals, flush=True)
         return vertical or horizontal or diagonals
 
     @property
