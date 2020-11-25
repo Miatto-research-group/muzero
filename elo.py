@@ -8,6 +8,8 @@ from environments import TicTacToe
 import random
 np.set_printoptions(precision=6, suppress=True, linewidth=180)
 
+np.random.seed(1954)
+
 if __name__ == "__main__":
 
     net1 = Network(TicTacToe.num_observations)
