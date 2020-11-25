@@ -18,7 +18,7 @@ if __name__ == "__main__":
     net2 = Network(TicTacToe.num_observations)
     net2.load('models/random.ptc')
     
-    game = TicTacToe()
+    game = TicTacToe() #why twice?
     with torch.no_grad():
         player = Tree(net1, game)
         random = Tree(net2, game)

@@ -116,6 +116,12 @@ class Tree:
         return episode
 
     def move(self, env_state, leaves_per_move:int):
+        """
+
+        :param env_state:
+        :param leaves_per_move:
+        :return: an action selected at random according to proba distribution pi
+        """
         self.environment.from_state(env_state)
         root_state = self.network.representation(self.environment.state)
         policy, _ = self.network.prediction(root_state)
