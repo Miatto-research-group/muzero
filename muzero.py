@@ -14,7 +14,7 @@ class Muzero:
         with torch.no_grad():
             self.mcts = MCTS(self.network, Environment())
         self.REPLAY_BUFFER = []
-        self.optimizer = torch.optim.Adam(self.network.parameters, lr=0.01, weight_decay=0.001)
+        self.optimizer = torch.optim.Adam(self.network.parameters, lr=0.001, weight_decay=0.001)
 
     def rollout(self, observation, actions: list, K: int = 5):
         "plays K hypothetical steps from any given observation"
@@ -32,15 +32,18 @@ class Muzero:
         g = np.random.choice(len(self.REPLAY_BUFFER))
         episode = self.REPLAY_BUFFER[g]
         move = np.random.choice(len(episode.actions)-2) # TODO: check the -2 (should make sure there's at least one move left)
+        # plays a rollout starting wherever we are and imagines 5 steps into the future
         rollout_episode = self.rollout(episode.observations[max(0, move+1-self.environment.num_observations): move+1], episode.actions[move:], K=5)
         loss_v = 0
+        loss_p = 0
         # print(episode.values)
         # print([float(v.detach().numpy()) for v in rollout_episode.values])
+        #z = target, v=prediction
         for z, v in zip(episode.values, rollout_episode.values):
             loss_v += (z - v) ** 2
-        loss_p = 0
+        #pi = target, p = prediction
         for pi, p in zip(episode.policies, rollout_episode.policies):
-            loss_p += torch.dot(torch.tensor(pi, dtype=torch.float), torch.log(p + 1e-9))
+            loss_p -= torch.dot(torch.tensor(pi, dtype=torch.float), torch.log(p + 1e-9))
         return loss_v + loss_p
 
     def optimize_step(self):

@@ -104,12 +104,12 @@ class Tree:
         episode = Episode()
         while not self.environment.end:
             pi = self.policy(leaves_per_move, mask=self.environment.mask)
-            action = np.random.choice(len(pi), p = pi)
+            action = np.random.choice(len(pi), p = pi) #choosing according to proba distribution of policy
             self.environment.play(action)
-            episode.store_data((self.environment.state, action, self.environment.reward, self.root.Q[action], self.root.P))
+            episode.store_data((self.environment.state, action, self.environment.reward, self.root.Q[action], pi))
             self.root = self.root.children[action]
             self.root.N *= self.environment.mask # set visits to 0 for upcoming illegal moves
-        if issubclass(self.environment.__class__, Game):
+        if issubclass(self.environment.__class__, Game): #if it's a game and not just an MDP with single player
             u = self.environment.reward # final reward
             winner = (len(episode.values) - 1)%self.environment.num_players
             episode.values = [u if k%self.environment.num_players == winner else -u for k in range(len(episode.values))]

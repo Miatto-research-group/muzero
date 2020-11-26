@@ -12,10 +12,10 @@ class TicTacToe(Game):
         self.state = np.zeros((2, 3, 3), dtype=np.int)
 
     @property
-    def turn(self):
+    def turn(self): #no need for one player
         return np.sum(self.state) % 2
     
-    def play(self, action) -> int:
+    def play(self, action) -> int: #drastic change
         if type(action) is int:
             action = self.action(action)
         if not self.valid_action(action):
@@ -25,7 +25,7 @@ class TicTacToe(Game):
         #print("Play ", self.reward, "\n",  self.state[self.turn], flush=True)
         return self.reward
     
-    def action(self, action_index: int) -> np.array:
+    def action(self, action_index: int) -> np.array: #drastic change
         z = np.zeros(9, dtype=np.int)
         z[action_index] = 1
         return z.reshape((3, 3))
