@@ -1,24 +1,59 @@
 import numpy as np
 from collections import deque
 from .envs import Game
+from scipy.spatial import distance
+
+np.seed(1954)
+
 
 class GateSynthesis(Game):
     num_players = 1
     num_actions = 7 #basic gates
     num_observations = 3 # number of states to pass to the representation network
 
-    def __init__(self):
+    def __init__(self, target_unitary:np.array, max_rwd: int):
         super().__init__()
-        self.state = np.zeros((1, 3, 3), dtype=np.int) #???
+        #self.state = np.zeros((1, 3, 3), dtype=np.int) #???
+        self.curr_space_state = 0 #???
+        self.target_unitary = target_unitary
+        self.max_rwd = max_rwd
 
     @property
     def turn(self): #no need for one player
         return 1 #always player 1's turn
 
-    def step(self):
+    def step(self, gate: np.array):
         """
         Takes a step into the Hilbert space, applying a matrix
         """
+        self.state = gate @ self.state ###on what?
+
+    @property
+    def reward(self) -> int:
+        """
+        The reward is as follows
+        max_rwd upon reaching final target unitary
+        +
+
+        """
+        # print("Reward ", int(self.end and (self.win_x or self.win_o)), flush=True)
+        target_rwd = int(np.allclose(self.target_unitary, curr_space_state)) * self.max_rwd
+        step_rwd =
+        return target_rwd + step_rwd
+
+    def distance(self) -> numeric:
+        """
+        Computes and returns the distance (as specified by the metric) between the
+        current location of the agent and its target
+        """
+        new_shape = 1
+        for s in len(self.curr_space_state.shape()) #for each dimension
+            new_shape *= s
+        reshaped_space_state = self.curr_space_state.reshape(new_shape)
+        #fun part => https://docs.scipy.org/doc/scipy/reference/spatial.distance.html
+        return np.abs(distance.directed_hausdorff(reshaped_space_state, self.target_unitary))
+
+    ######################################"
     
     def play(self, action) -> int: #drastic change
         if type(action) is int:
@@ -39,10 +74,7 @@ class GateSynthesis(Game):
     def end(self):
         return self.win_x or self.win_o or self.draw
 
-    @property
-    def reward(self) -> int:
-        #print("Reward ", int(self.end and (self.win_x or self.win_o)), flush=True)
-        return int(self.end and (self.win_x or self.win_o))
+
 
     @property
     def mask(self):
