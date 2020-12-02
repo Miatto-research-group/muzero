@@ -47,9 +47,13 @@ class Muzero:
         return loss_v + loss_p
 
     def optimize_step(self):
+        # what happens here? is it updated?
         self.optimizer.zero_grad(set_to_none=True)
         output = self.loss()
-        output.backward()
+        print(output)
+        print(output.shape)
+        tmp = output.backward() #what is this???
+        print(tmp)
         self.optimizer.step()
 
     def fill_replay_buffer(self, games:int):
