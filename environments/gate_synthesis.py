@@ -1,128 +1,160 @@
 import numpy as np
 from collections import deque
-from .envs import Game
-from scipy.spatial import distance
+from envs import Game
+from operators import *
+import itertools
 
-np.seed(1954)
-
+np.random.seed(1954)
 
 class GateSynthesis(Game):
     num_players = 1
-    num_actions = 7 #basic gates
+    num_gates = 7
+    num_qbits = 3
     num_observations = 3 # number of states to pass to the representation network
 
-    def __init__(self, target_unitary:np.array, max_rwd: int):
+    def __init__(self, target_unitary:np.array, curr_unitary:np.array, max_rwd: int, q1_gates:[np.array], q2_gates:[np.array] ):
         super().__init__()
         #self.state = np.zeros((1, 3, 3), dtype=np.int) #???
-        self.curr_space_state = 0 #???
+        self.curr_unitary = curr_unitary
+        self.prev_unitary = curr_unitary
         self.target_unitary = target_unitary
         self.max_rwd = max_rwd
+        self.q1_gates = q1_gates
+        self.q2_gates = q2_gates
 
     @property
     def turn(self): #no need for one player
         return 1 #always player 1's turn
 
-    def step(self, gate: np.array):
+
+    def dist_to_target(self, unitary):
+        """
+        Computes distance between two unitary operators
+        Natively dist between curr_unitary and target,
+        but possibly between some unitary and target
+        """
+        return np.power(np.linalg.norm(self.target_unitary - unitary), 2)
+
+
+    def qbit_num_to_tensor_index(self, n: int):
+        m = (n + 1) * 2
+        evens = list(filter(lambda x: x % 2 == 0, list(range(m))))
+        return evens[(n - 1)]
+
+    def apply_1q_gate(self, gate:np.array, qbit:int):
+        qb_idx = self.qbit_num_to_tensor_index(qbit)
+        self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=(qb_idx, 1))
+
+    def apply_2q_gate(self, gate:np.array, qbitA:int, qbitB:int):
+        qbA_idx = self.qbit_num_to_tensor_index(qbitA)
+        qbB_idx = self.qbit_num_to_tensor_index(qbitB)
+        self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbA_idx,qbB_idx],[1,3]))
+
+    def step(self, action):
         """
         Takes a step into the Hilbert space, applying a matrix
         """
-        self.state = gate @ self.state ###on what?
+        (gate, qbit) = action
+        if (gate.shape == (2, 2, 2, 2)):  # 2qb
+            (qbA, qbB) = qbit
+            self.apply_2q_gate(gate, qbA, qbB)  # 1qb
+        elif (gate.shape == (2, 2)):
+            self.apply_1q_gate(gate, qbit)
+        else:
+            raise ValueError('Unsupported gate dimension')
+        return self.reward
+
+    @property
+    def actions(self):
+        """
+        Returns all possible combination of actions available to the agent at time T
+        """
+        num_qbits = np.int(len(self.curr_unitary) / 2)
+        q1_actions = list(itertools.product(self.q1_gates, range(num_qbits)))
+        all_2q_permutations = list(itertools.product(range(num_qbits), range(num_qbits)))
+        coherent_2q_permutations = b = list(filter(lambda x: x[0] != x[1], all_2q_permutations))
+        q2_actions = list(itertools.product(self.q2_gates, coherent_2q_permutations))
+        return q1_actions + q2_actions
+
+    def select_random_action(self):
+        poss_actions = self.actions
+        idx = np.random.randint(0,len(poss_actions))
+        return poss_actions[idx]
+
+    def select_explicit_action(self, n:int):
+        poss_actions = self.actions
+        return poss_actions[n]
 
     @property
     def reward(self) -> int:
         """
         The reward is as follows
         max_rwd upon reaching final target unitary
-        +
-
+        + step_rwd which is the improvement in distance from last position to new one
+        So if the agent is closer, then step_rwd is positive,
+        if agent is further away, step rwd is negative
         """
-        # print("Reward ", int(self.end and (self.win_x or self.win_o)), flush=True)
-        target_rwd = int(np.allclose(self.target_unitary, curr_space_state)) * self.max_rwd
-        step_rwd =
+        target_rwd = int(np.allclose(self.target_unitary, self.curr_unitary)) * self.max_rwd
+        step_rwd = self.dist_to_target(self.prev_unitary) - self.dist_to_target(self.curr_unitary)
         return target_rwd + step_rwd
 
-    def distance(self) -> numeric:
-        """
-        Computes and returns the distance (as specified by the metric) between the
-        current location of the agent and its target
-        """
-        new_shape = 1
-        for s in len(self.curr_space_state.shape()) #for each dimension
-            new_shape *= s
-        reshaped_space_state = self.curr_space_state.reshape(new_shape)
-        #fun part => https://docs.scipy.org/doc/scipy/reference/spatial.distance.html
-        return np.abs(distance.directed_hausdorff(reshaped_space_state, self.target_unitary))
 
-    ######################################"
-    
-    def play(self, action) -> int: #drastic change
+    @property
+    def end(self):
+        return self.has_won or self.is_stuck
+
+    @property
+    def has_won(self):
+        return np.allclose(self.curr_unitary, self.target_unitary)
+
+    @property
+    def is_stuck(self):  # TODO decide when to consider that this exploration has failed and agent is stuck
+        return False
+
+################################################################"
+    """
+    def play(self, action) -> int:  # drastic change
         if type(action) is int:
             action = self.action(action)
         if not self.valid_action(action):
             self.show
             raise ValueError(f"invalid action \n{action}")
         self.state[self.turn] += action
-        #print("Play ", self.reward, "\n",  self.state[self.turn], flush=True)
+        # print("Play ", self.reward, "\n",  self.state[self.turn], flush=True)
         return self.reward
+
     
-    def action(self, action_index: int) -> np.array: #drastic change
-        z = np.zeros(9, dtype=np.int)
-        z[action_index] = 1
-        return z.reshape((3, 3))
-
-    @property
-    def end(self):
-        return self.win_x or self.win_o or self.draw
-
-
-
+    
     @property
     def mask(self):
         return 1 - (self.state[0] + self.state[1]).reshape(-1)
 
     def valid_action(self, action):
-        return action.reshape(-1)@self.mask > 0
-    
-    @staticmethod
-    def check_win(board):
-        vertical = np.isclose(np.sum(board, axis=0), 3).any()
-        horizontal = np.isclose(np.sum(board, axis=1), 3).any()
-        diagonals = np.isclose([np.trace(board), np.trace(np.rot90(board))], 3).any()
-        #print("Check Win: ", vertical, horizontal, diagonals, flush=True)
-        return vertical or horizontal or diagonals
-
-    @property
-    def win_x(self):
-        return self.check_win(self.state[0])
-        
-    @property
-    def win_o(self):
-        return self.check_win(self.state[1])
-    
-    @property
-    def draw(self):
-        return np.allclose(self.state[0] + self.state[1], 1)
+        return action.reshape(-1) @ self.mask > 0
 
     @property
     def show(self):
-        squares = [" ", " ", " ", " ", " ", " ", " ", " ", " "]
-        for k in range(9):
-            if self.state[0].reshape(-1)[k] == 1: squares[k] = "x"
-            if self.state[1].reshape(-1)[k] == 1: squares[k] = "o"
-        print(" ___\n|"+"".join(squares[:3]) + "|\n|" + "".join(squares[3:6]) + "|\n|" + "".join(squares[6:])+"|\n ---", flush=True)
+        pass
 
+"""
+######################################################"
+    def apply_1q_gate_to_q1(gate:np.array):
+        return np.tensordot(gate, self.curr_unitary, axis=(0,1))
 
-    ########################################
-    ########################################
+    def apply_1q_gate_to_q2(gate:np.array):
+        return np.tensordot(gate, self.curr_unitary, axis=(2,1))
 
-    X = np.array([[0, 1], [1, 0]])
-    Y = np.array([[0, -1j], [1j, 0]])
-    Z = np.array([[1, 0], [0, -1]])
-    S = np.array([[1, 0], [0, 1j]])
-    H = (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])
-    T = np.array([[1, 0], [0, np.exp((1j * np.pi) / 4)]])
-    CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
+    def apply_1q_gate_to_q3(gate:np.array):
+        return np.tensordot(gate, self.curr_unitary, axis=(4,1))
 
+    def apply_2q_gate_to_q12(gate:np.array):
+        return np.tensordot(gate, self.curr_unitary, axes=([0,2],[1,3]))
 
+    def apply_2q_gate_to_q23(gate:np.array):
+        return np.tensordot(gate, self.curr_unitary, axes=([2,4],[1,3]))
 
+    def apply_2q_gate_to_q13(gate:np.array):
+        return np.tensordot(gate, self.curr_unitary, axes=([0,4],[1,3]))
+
+#############################################################"
 
