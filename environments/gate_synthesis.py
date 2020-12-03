@@ -56,6 +56,7 @@ class GateSynthesis(Game):
         Takes a step into the Hilbert space, applying a matrix
         """
         (gate, qbit) = action
+        print(qbit)
         if (gate.shape == (2, 2, 2, 2)):  # 2qb
             (qbA, qbB) = qbit
             self.apply_2q_gate(gate, qbA, qbB)  # 1qb
@@ -81,6 +82,7 @@ class GateSynthesis(Game):
     def select_random_action(self):
         poss_actions = self.actions
         idx = np.random.randint(0,len(poss_actions))
+        print(poss_actions[idx])
         return poss_actions[idx]
 
     def select_explicit_action(self, n:int):
