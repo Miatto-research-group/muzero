@@ -21,6 +21,7 @@ class GateSynthesis(Game):
         self.max_rwd = max_rwd
         self.q1_gates = q1_gates
         self.q2_gates = q2_gates
+        self.nb_steps = 0
 
     @property
     def turn(self): #no need for one player
@@ -62,6 +63,7 @@ class GateSynthesis(Game):
             self.apply_1q_gate(gate, qbit)
         else:
             raise ValueError('Unsupported gate dimension')
+        self.nb_steps += 1
         return self.reward
 
     @property
@@ -110,6 +112,18 @@ class GateSynthesis(Game):
     @property
     def is_stuck(self):  # TODO decide when to consider that this exploration has failed and agent is stuck
         return False
+
+    def play_one_episode(self, th:int):
+        rwd = 0
+        while ((not self.has_won) and (self.nb_steps < th)):
+            act = self.select_random_action()
+            rwd += self.step(act)
+            print(f"ep with rwd {rwd}")
+        if (self.has_won):
+            print(f"Agent found unitary in {self.nb_steps} with final reward {rwd}")
+        else:
+            print(f"Agent did not find unitary in {self.nb_steps}")
+        return rwd
 
 ################################################################"
     """
