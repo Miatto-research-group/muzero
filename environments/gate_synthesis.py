@@ -56,6 +56,13 @@ class GateSynthesis(Game):
         qbA_idx = self.qbit_num_to_tensor_index(qbitA)
         qbB_idx = self.qbit_num_to_tensor_index(qbitB)
         self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbA_idx,qbB_idx],[1,3]))
+        #self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbA_idx, qbB_idx], [3, 1]))
+        #self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbA_idx, qbB_idx], [1, 3]))
+        #self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbA_idx, qbB_idx], [3, 1]))
+        #self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbB_idx,qbA_idx],[1,3]))
+        #self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbB_idx, qbA_idx], [3, 1]))
+        #self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbB_idx, qbA_idx], [1, 3]))
+        #self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbB_idx, qbA_idx], [3, 1]))
 
     def step(self, action):
         """

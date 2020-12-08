@@ -19,6 +19,7 @@ rwd0 = game.step(a)
 print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, received reward {rwd0}")
 print(game.curr_unitary)
 
+
 print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}")
 b = (CNOT, (1, 0))
 print(f"Selected action : {b}")
