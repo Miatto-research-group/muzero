@@ -7,14 +7,16 @@ import itertools
 np.random.seed(1954)
 
 class GateSynthesis(Game):
+    num_observations: 3  # number of states to pass to the representation network
+    MDP: true
     num_players = 1
     num_gates = 7
     num_qbits = 3
-    num_observations = 3 # number of states to pass to the representation network
+    num_actions: num_gates * num_qbits
 
     def __init__(self, target_unitary:np.array, curr_unitary:np.array, max_rwd: int, q1_gates:[np.array], q2_gates:[np.array] ):
         super().__init__()
-        #self.state = np.zeros((1, 3, 3), dtype=np.int) #???
+        self.state = None #TODO what is it?
         self.curr_unitary = curr_unitary
         self.prev_unitary = curr_unitary
         self.target_unitary = target_unitary
@@ -36,11 +38,8 @@ class GateSynthesis(Game):
         """
         return np.power(np.linalg.norm(self.target_unitary - unitary), 2)
 
-
     def qbit_num_to_tensor_index(self, n: int):
-        m = (n + 1) * 2
-        evens = list(filter(lambda x: x % 2 == 0, list(range(m))))
-        return evens[(n - 1)]
+        return (n - 1) * 2
 
     def apply_1q_gate(self, gate:np.array, qbit:int):
         qb_idx = self.qbit_num_to_tensor_index(qbit)
