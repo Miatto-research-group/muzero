@@ -74,6 +74,18 @@ class GateSynthesis(Game):
         self.nb_steps += 1
         self.distance_history.append(self.dist_to_target(self.curr_unitary)) #add current distance
         rwd = self.reward
+        # add to particular
+        if (rwd > 0):
+            self.pos_cumulated_reward += rwd
+            self.pos_reward_history.append(self.pos_cumulated_reward)
+            self.neg_cumulated_reward += 0
+            self.neg_reward_history.append(self.tot_cumulated_reward) #plateau
+        else:
+            self.neg_cumulated_reward += rwd
+            self.neg_reward_history.append(self.neg_cumulated_reward)
+            self.pos_cumulated_reward += 0
+            self.pos_reward_history.append(self.tot_cumulated_reward)  # plateau
+        # add to general
         self.tot_cumulated_reward += rwd
         self.tot_reward_history.append(self.tot_cumulated_reward)
         return rwd
