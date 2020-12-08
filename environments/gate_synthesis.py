@@ -8,7 +8,7 @@ np.random.seed(1954)
 
 class GateSynthesis(Game):
     num_observations: 3  # number of states to pass to the representation network
-    MDP: true
+    MDP: True
     num_players = 1
     num_gates = 7
     num_qbits = 3
@@ -24,6 +24,13 @@ class GateSynthesis(Game):
         self.q1_gates = q1_gates
         self.q2_gates = q2_gates
         self.nb_steps = 0
+        self.tot_cumulated_reward = 0
+        self.pos_cumulated_reward = 0
+        self.neg_cumulated_reward = 0
+        self.tot_reward_history = []
+        self.pos_reward_history = []
+        self.neg_reward_history = []
+        self.distance_history = []
 
     @property
     def turn(self): #no need for one player
@@ -43,12 +50,12 @@ class GateSynthesis(Game):
 
     def apply_1q_gate(self, gate:np.array, qbit:int):
         qb_idx = self.qbit_num_to_tensor_index(qbit)
-        self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=(qb_idx, 1))
+        self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=(qb_idx, 1))
 
     def apply_2q_gate(self, gate:np.array, qbitA:int, qbitB:int):
         qbA_idx = self.qbit_num_to_tensor_index(qbitA)
         qbB_idx = self.qbit_num_to_tensor_index(qbitB)
-        self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbA_idx,qbB_idx],[1,3]))
+        self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbA_idx,qbB_idx],[1,3]))
 
     def step(self, action):
         """
@@ -56,6 +63,7 @@ class GateSynthesis(Game):
         """
         (gate, qbit) = action
         print(qbit)
+        self.prev_unitary = self.curr_unitary  # save before moving
         if (gate.shape == (2, 2, 2, 2)):  # 2qb
             (qbA, qbB) = qbit
             self.apply_2q_gate(gate, qbA, qbB)  # 1qb
@@ -64,7 +72,11 @@ class GateSynthesis(Game):
         else:
             raise ValueError('Unsupported gate dimension')
         self.nb_steps += 1
-        return self.reward
+        self.distance_history.append(self.dist_to_target(self.curr_unitary)) #add current distance
+        rwd = self.reward
+        self.tot_cumulated_reward += rwd
+        self.tot_reward_history.append(self.tot_cumulated_reward)
+        return rwd
 
     @property
     def actions(self):
@@ -138,38 +150,10 @@ class GateSynthesis(Game):
         # print("Play ", self.reward, "\n",  self.state[self.turn], flush=True)
         return self.reward
 
-    
-    
-    @property
-    def mask(self):
-        return 1 - (self.state[0] + self.state[1]).reshape(-1)
-
-    def valid_action(self, action):
-        return action.reshape(-1) @ self.mask > 0
-
     @property
     def show(self):
         pass
 
 """
-######################################################"
-    def apply_1q_gate_to_q1(gate:np.array):
-        return np.tensordot(gate, self.curr_unitary, axis=(0,1))
 
-    def apply_1q_gate_to_q2(gate:np.array):
-        return np.tensordot(gate, self.curr_unitary, axis=(2,1))
-
-    def apply_1q_gate_to_q3(gate:np.array):
-        return np.tensordot(gate, self.curr_unitary, axis=(4,1))
-
-    def apply_2q_gate_to_q12(gate:np.array):
-        return np.tensordot(gate, self.curr_unitary, axes=([0,2],[1,3]))
-
-    def apply_2q_gate_to_q23(gate:np.array):
-        return np.tensordot(gate, self.curr_unitary, axes=([2,4],[1,3]))
-
-    def apply_2q_gate_to_q13(gate:np.array):
-        return np.tensordot(gate, self.curr_unitary, axes=([0,4],[1,3]))
-
-#############################################################"
 
