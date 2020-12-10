@@ -52,19 +52,13 @@ class GateSynthesis(Game):
     def newaxes_2q(self, qbA_idx, qbB_idx):
         lst = [_ for _ in range(2 * self.nb_qbits)] #create list of consecutive integers
         print(qbA_idx, qbB_idx)
-        #print(lst)
-        if (qbA_idx < qbB_idx):
-            first= qbA_idx
-            second = qbB_idx
-            print("HEY!")
-        elif (qbA_idx > qbB_idx):
-            first = qbB_idx
-            second = qbA_idx
-            print("HO!")
-        else:
+        min = np.minimum(qbA_idx, qbB_idx)
+        max = np.maximum(qbA_idx,qbB_idx)
+        idx_0 = int(qbA_idx<qbB_idx)
+        idx_1 = int(qbB_idx<qbA_idx)
+        if (min == max):
             raise ValueError('Illegal application on two qubits which are in fact the same qubit twice')
-        print("F", first, " S", second)
-        res = lst[:first] + [lst[-2]] + lst[first:second] + [lst[-1]] + lst[second:]
+        res = lst[:min] + [lst[idx_0]] + lst[min:max] + [lst[idx_1]] + lst[max:]
         return res[:-2]
 
     def apply_1q_gate(self, gate:np.array, qbit:int):
