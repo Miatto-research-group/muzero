@@ -11,7 +11,7 @@ class GateSynthesis(Game):
     MDP: True
     num_players = 1
     num_gates = 7
-    num_qbits = 3
+    num_qbits = 2
     num_actions: num_gates * num_qbits
 
     def __init__(self, target_unitary:np.array, curr_unitary:np.array, max_rwd: int, q1_gates:[np.array], q2_gates:[np.array] ):
@@ -20,6 +20,7 @@ class GateSynthesis(Game):
         self.curr_unitary = curr_unitary
         self.prev_unitary = curr_unitary
         self.target_unitary = target_unitary
+        self.nb_qbits = np.int(len(self.curr_unitary.shape) / 2)
         self.max_rwd = max_rwd
         self.q1_gates = q1_gates
         self.q2_gates = q2_gates
@@ -46,7 +47,25 @@ class GateSynthesis(Game):
         return np.power(np.linalg.norm(self.target_unitary - unitary), 2)
 
     def qbit_num_to_tensor_index(self, n: int):
-        return (n - 1) * 2
+        return n * 2
+
+    def newaxes_2q(self, qbA_idx, qbB_idx):
+        lst = [_ for _ in range(2 * self.nb_qbits)] #create list of consecutive integers
+        print(qbA_idx, qbB_idx)
+        #print(lst)
+        if (qbA_idx < qbB_idx):
+            first= qbA_idx
+            second = qbB_idx
+            print("HEY!")
+        elif (qbA_idx > qbB_idx):
+            first = qbB_idx
+            second = qbA_idx
+            print("HO!")
+        else:
+            raise ValueError('Illegal application on two qubits which are in fact the same qubit twice')
+        print("F", first, " S", second)
+        res = lst[:first] + [lst[-2]] + lst[first:second] + [lst[-1]] + lst[second:]
+        return res[:-2]
 
     def apply_1q_gate(self, gate:np.array, qbit:int):
         qb_idx = self.qbit_num_to_tensor_index(qbit)
@@ -55,21 +74,17 @@ class GateSynthesis(Game):
     def apply_2q_gate(self, gate:np.array, qbitA:int, qbitB:int):
         qbA_idx = self.qbit_num_to_tensor_index(qbitA)
         qbB_idx = self.qbit_num_to_tensor_index(qbitB)
-        self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbA_idx,qbB_idx],[1,3]))
-        #self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbA_idx, qbB_idx], [3, 1]))
-        #self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbA_idx, qbB_idx], [1, 3]))
-        #self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbA_idx, qbB_idx], [3, 1]))
-        #self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbB_idx,qbA_idx],[1,3]))
-        #self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=([qbB_idx, qbA_idx], [3, 1]))
-        #self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbB_idx, qbA_idx], [1, 3]))
-        #self.curr_unitary = np.tensordot(gate, self.curr_unitary, axes=([qbB_idx, qbA_idx], [3, 1]))
+        tensored_res = np.tensordot(self.curr_unitary, gate, axes=([qbA_idx,qbB_idx],[1,3]))
+        reshaping_idx_list = self.newaxes_2q(qbA_idx, qbB_idx)
+        print(tensored_res.shape, reshaping_idx_list)
+        self.curr_unitary = np.transpose(tensored_res, reshaping_idx_list)
 
     def step(self, action):
         """
         Takes a step into the Hilbert space, applying a matrix
         """
         (gate, qbit) = action
-        print(qbit)
+        #print(qbit)
         self.prev_unitary = self.curr_unitary  # save before moving
         if (gate.shape == (2, 2, 2, 2)):  # 2qb
             (qbA, qbB) = qbit
@@ -86,9 +101,8 @@ class GateSynthesis(Game):
         """
         Returns all possible combination of actions available to the agent at time T
         """
-        num_qbits = np.int(len(self.curr_unitary) / 2)
-        q1_actions = list(itertools.product(self.q1_gates, range(num_qbits)))
-        all_2q_permutations = list(itertools.product(range(num_qbits), range(num_qbits)))
+        q1_actions = list(itertools.product(self.q1_gates, range(self.nb_qbits)))
+        all_2q_permutations = list(itertools.product(range(self.nb_qbits), range(self.nb_qbits)))
         coherent_2q_permutations = b = list(filter(lambda x: x[0] != x[1], all_2q_permutations))
         q2_actions = list(itertools.product(self.q2_gates, coherent_2q_permutations))
         return q1_actions + q2_actions
