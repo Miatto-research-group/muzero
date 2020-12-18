@@ -29,8 +29,6 @@ def do_plot_2D(x, y, labs, f_name, tit, logx=False, logy=False, gnplt=True, col_
     if not os.path.isdir(results_dir):
         os.makedirs(results_dir)
 
-    omg = zip(labs, y)
-
     plt.xlabel(x_lab)
     plt.ylabel(y_lab)
 

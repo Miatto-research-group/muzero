@@ -49,36 +49,36 @@ class GateSynthesis(Game):
     def qbit_num_to_tensor_index(self, n: int):
         return n * 2
 
-    def newaxes_2q(self, qbA_idx, qbB_idx):
-        lst = [_ for _ in range(2 * self.nb_qbits)]  # create list of consecutive integers
-        print(qbA_idx, qbB_idx)
-        min = np.minimum(qbA_idx, qbB_idx)
-        max = np.maximum(qbA_idx, qbB_idx)
-        idx_0 = int(qbA_idx < qbB_idx)
-        idx_1 = int(qbB_idx < qbA_idx)
-        if (min == max):
-            raise ValueError('Illegal application on two qubits which are in fact the same qubit twice')
-        res = lst[:min] + [idx_0] + lst[min:max] + [idx_1] + lst[max:]
-        return res[:-2]
-
     def apply_1q_gate(self, gate:np.array, qbit:int):
         qb_idx = self.qbit_num_to_tensor_index(qbit)
         self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=(qb_idx, 1))
 
-    def apply_2q_gate(self, gate:np.array, qbitA:int, qbitB:int):
-        qbA_idx = self.qbit_num_to_tensor_index(qbitA)
-        qbB_idx = self.qbit_num_to_tensor_index(qbitB)
-        tensored_res = np.tensordot(self.curr_unitary, gate, axes=([qbA_idx,qbB_idx],[1,3]))
-        reshaping_idx_list = self.newaxes_2q(qbA_idx, qbB_idx)
-        print(tensored_res.shape, reshaping_idx_list)
-        self.curr_unitary = np.transpose(tensored_res, reshaping_idx_list)
+    #index qbits as 0,1
+    def apply_2q_gate(self, gate: np.array, qbitA: int, qbitB: int):
+        A = 2 * qbitA
+        B = 2 * qbitB
+        tensored_res = np.tensordot(self.curr_unitary, gate, axes=((A, B), (1, 3)))
+        N = self.curr_unitary.ndim
+        lst = list(range(N))
+        if A < B:
+            smaller, bigger = A, B
+            first, second = N - 2, N - 1
+        else:
+            smaller, bigger = B, A
+            first, second = N - 1, N - 2
+        lst.insert(smaller, first)
+        lst.insert(bigger, second)
+        res = np.transpose(tensored_res, lst[:-2])
+        self.curr_unitary = res
+        return res
+
+
 
     def step(self, action):
         """
         Takes a step into the Hilbert space, applying a matrix
         """
         (gate, qbit) = action
-        #print(qbit)
         self.prev_unitary = self.curr_unitary  # save before moving
         if (gate.shape == (2, 2, 2, 2)):  # 2qb
             (qbA, qbB) = qbit
@@ -104,7 +104,7 @@ class GateSynthesis(Game):
     def select_random_action(self):
         poss_actions = self.actions
         idx = np.random.randint(0,len(poss_actions))
-        print(poss_actions[idx])
+        #print(poss_actions[idx])
         return poss_actions[idx]
 
     def select_explicit_action(self, n:int):
