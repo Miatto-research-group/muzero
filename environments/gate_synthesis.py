@@ -170,20 +170,3 @@ class GateSynthesis(Game):
         else:
             print(f"Agent did not find unitary in {self.nb_steps}")
         return rwd
-
-################################################################"
-    """
-    def play(self, action) -> int:  # drastic change
-        if type(action) is int:
-            action = self.action(action)
-        if not self.valid_action(action):
-            self.show
-            raise ValueError(f"invalid action \n{action}")
-        self.state[self.turn] += action
-        # print("Play ", self.reward, "\n",  self.state[self.turn], flush=True)
-        return self.reward
-    @property
-    def show(self):
-        pass
-"""
-
