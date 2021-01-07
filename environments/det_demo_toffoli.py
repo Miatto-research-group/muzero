@@ -8,52 +8,112 @@ np.random.seed(1954)
 
 import numpy as np
 I = np.array([[1,0],[0,1]])
-II = np.tensordot(I, I, axes=((),()))
+II = np.tensordot(I, I, axes=0)
 P0 = np.array([[1,0],[0,0]]) #what???
 P1 = np.array([[0,0],[0,1]])
-toffoli = np.tensordot(P0, II, axes=((),())) + np.tensordot(P1, cnot, axes=((),()))
+toffoli = np.tensordot(P0, II, axes=0) + np.tensordot(P1, CNOT, axes=0)
 
-
-np.tensordot(P0, I, axes=((),())) + np.tensordot(P1, X, axes=((),()))
-
-
-
-
-
-q1_gates = [X, Y, Z, S, H, T]
+q1_gates = [X, Y, Z, S, H, T, Tdag]
 q2_gates = [CNOT]
-init = np.tensordot(I, I, axes=0)
+init = np.tensordot(I, II, axes=0)
 
-revCNOT = np.array([[[[1, 0],[0, 0]], [[0 ,0],[0 ,1]]], [[[0 ,0],[0, 1]],[[1, 0],[0, 0]]]])
-beta = np.array([[[[1, 0],[0, 0]], [[0 ,0],[1 ,0]]], [[[0 ,0],[0, 1]],[[0, 1],[0, 0]]]])
-
-game = GateSynthesis(SWAP, init, 500, q1_gates, q2_gates)
+game = GateSynthesis(TOFFOLI, init, 500, q1_gates, q2_gates)
 
 print("##### DETERMINISTIC DRIVER DEMO FOR TOFFOLI GATE #####")
 print(f"Initial distance to target = {game.dist_to_target(game.curr_unitary)}")
 print("- - - - - - - - - ")
 
+
+print("Do step #0 : apply CNOT to q0,q1")
 a = (CNOT, (0, 1))
-rwd0 = game.step(a)
-print("Do step #1")
-print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, received reward {rwd0}")
-print("Step correct?", np.allclose(game.curr_unitary, CNOT))
-
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
 print("- - - - - - - - - ")
 
-b = (CNOT, (1, 0))
-rwd1 = game.step(b)
-print("Do step #2")
-print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, received reward {rwd1}")
-print("Step correct?", np.allclose(game.curr_unitary, beta))
 
-
+print("Do step #1a : apply T to q0")
+a = (T, 0)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
 print("- - - - - - - - - ")
 
-c = (CNOT, (0, 1))
-rwd2 = game.step(c)
-print("Do step #3")
-print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, received reward {rwd2}")
-print("Step correct?", np.allclose(game.curr_unitary, SWAP))
+print("Do step #1b : apply Tdag to q1")
+a = (Tdag, 1)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #2a : apply CNOT to q0, q1")
+a = (CNOT, (0, 1))
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #2b : apply H to q2")
+a = (H, 2)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #3a : apply T to q1")
+a = (T, 1)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #3b : apply T to q2")
+a = (T, 2)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #4 : apply CNOT to q0, q2")
+a = (CNOT, (0,2))
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #5 : apply Tdag to q2")
+a = (Tdag, 2)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #6 : apply CNOT to q1, q2")
+a = (CNOT, (1,2))
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #7 : apply T to q2")
+a = (T, 2)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #8 : apply CNOT to q0, q2")
+a = (CNOT, (0,2))
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #9 : apply Tdag to q2")
+a = (Tdag, 2)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #10 : apply CNOT to q1, q2")
+a = (CNOT, (1,2))
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
+print("Do step #2b : apply H to q2")
+a = (H, 2)
+r = game.step(a)
+print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
+print("- - - - - - - - - ")
+
 
 print(f"End result current == target? {np.allclose(game.curr_unitary, game.target_unitary)}")
