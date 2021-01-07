@@ -29,7 +29,7 @@ a = (H, 2)
 r = game.step(a)
 print(f"Distance to target = {game.dist_to_target(game.curr_unitary)}, \t rwd {r}")
 print("- - - - - - - - - ")
-print(to_matrix(game.curr_unitary))
+#print(to_matrix(game.curr_unitary))
 
 
 print("Do step #1 : apply CNOT to q1, q2")

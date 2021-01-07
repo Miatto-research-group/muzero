@@ -51,7 +51,15 @@ class GateSynthesis(Game):
 
     def apply_1q_gate(self, gate:np.array, qbit:int):
         qb_idx = self.qbit_num_to_tensor_index(qbit)
-        self.curr_unitary = np.tensordot(self.curr_unitary, gate, axes=(qb_idx, 1))
+        tensored_res = np.tensordot(self.curr_unitary, gate, axes=(qb_idx, 1))
+
+        N = self.curr_unitary.ndim
+        lst = list(range(N))
+        idx = 2 * qbit
+        lst.insert(idx, N - 1)
+        res = np.transpose(tensored_res, lst[:-1])
+        self.curr_unitary = res
+        return res
 
     #index qbits as 0,1
     def apply_2q_gate(self, gate: np.array, qbitA: int, qbitB: int):
