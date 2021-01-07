@@ -49,3 +49,20 @@ def do_plot_2D(x, y, labs, f_name, tit, logx=False, logy=False, gnplt=True, col_
     plt.close()
 
 
+
+###############################################################################
+###                         VISUALISING UNITARIES                           ###
+###############################################################################
+def to_matrix(some_tensor:np.array) -> np.matrix:
+    res = None
+    if (some_tensor.shape == (2, 2)):
+        res = some_tensor
+    elif (some_tensor.shape == (2, 2, 2, 2)):
+        res = np.einsum('abcd->dacb', some_tensor)
+        res = np.reshape(res, (4, 4))
+    elif (some_tensor.shape == (2, 2, 2, 2, 2, 2)):
+        res = np.einsum('abcdef->acebdf', some_tensor)
+        res = np.reshape(res, (8, 8))
+    else:
+        raise ValueError('Unsupported system dimension for matrix visualisation')
+    return np.matrix(res)
