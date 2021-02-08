@@ -105,14 +105,13 @@ class GateSynthesis(Game):
         """
         q1_actions = list(itertools.product(self.q1_gates, range(self.nb_qbits)))
         all_2q_permutations = list(itertools.product(range(self.nb_qbits), range(self.nb_qbits)))
-        coherent_2q_permutations = b = list(filter(lambda x: x[0] != x[1], all_2q_permutations))
+        coherent_2q_permutations = list(filter(lambda x: x[0] != x[1], all_2q_permutations))
         q2_actions = list(itertools.product(self.q2_gates, coherent_2q_permutations))
         return q1_actions + q2_actions
 
     def select_random_action(self):
         poss_actions = self.actions
         idx = np.random.randint(0,len(poss_actions))
-        #print(poss_actions[idx])
         return poss_actions[idx]
 
     def select_explicit_action(self, n:int):
